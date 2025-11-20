@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicPulse AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); }
+        /* Timeline CSS */
+        .timeline-item { position: relative; padding-left: 2rem; border-left: 2px solid #e5e7eb; padding-bottom: 1.5rem; }
+        .timeline-item:last-child { border-left: none; }
+        .timeline-dot { position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; border: 2px solid white; }
+        .timeline-active .timeline-dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen">
+
+    <div id="view-landing" class="min-h-screen flex flex-col items-center justify-center gradient-bg text-white p-4">
+        <div class="text-center mb-12">
+            <i class="fa-solid fa-city text-6xl mb-4 text-blue-400"></i>
+            <h1 class="text-5xl font-bold mb-2">CivicPulse AI</h1>
+            <p class="text-xl text-blue-200">Automated Municipal Infrastructure Tracking</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+            <div onclick="switchView('citizen')" class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/20 cursor-pointer transition transform hover:-translate-y-2 text-center group">
+                <div class="bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition">
+                    <i class="fa-solid fa-user text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold">Complainant</h2>
+                <p class="text-sm text-gray-300 mt-2">Report issues, track progress, and get AI updates.</p>
+            </div>
+
+            <div onclick="switchView('contractor')" class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/20 cursor-pointer transition transform hover:-translate-y-2 text-center group">
+                <div class="bg-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition">
+                    <i class="fa-solid fa-hard-hat text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold">Contractor</h2>
+                <p class="text-sm text-gray-300 mt-2">View assignments and upload proof of resolution.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-dashboard" class="hidden">
+        <nav class="bg-white shadow-sm sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center cursor-pointer" onclick="location.reload()">
+                    <i class="fa-solid fa-city text-blue-600 mr-2"></i>
+                    <span class="font-bold text-gray-800 text-xl">CivicPulse</span>
+                    <span id="role-badge" class="ml-3 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full uppercase font-bold">User</span>
+                </div>
+                <button onclick="connectWallet()" id="connectBtn" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
+                    Connect Wallet
+                </button>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-4 space-y-6">
+                
+                <div id="form-citizen" class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Lay a Claim</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Your Contact (for AI updates)</label>
+                        <input type="text" placeholder="Email or Phone Number" class="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <div class="flex mb-4 bg-gray-100 p-1 rounded-lg">
+                        <button onclick="setTab('image')" id="tab-image" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow text-blue-600 transition">Photo</button>
+                        <button onclick="setTab('text')" id="tab-text" class="flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:text-gray-700 transition">Text Description</button>
+                    </div>
+
+                    <div id="input-image" class="mb-4">
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-blue-50 cursor-pointer transition group" onclick="document.getElementById('fileInput').click()">
+                            <i class="fa-solid fa-camera text-3xl text-gray-400 group-hover:text-blue-500 mb-2"></i>
+                            <p class="text-sm text-gray-500">Upload Evidence</p>
+                            <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleUpload(this)">
+                        </div>
+                        <img id="preview" class="hidden mt-2 w-full h-40 object-cover rounded-lg">
+                    </div>
+
+                    <div id="input-text" class="hidden mb-4">
+                        <textarea id="textInput" class="w-full h-32 p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500" placeholder="Describe the problem (e.g., Large pothole on Main St causing traffic)..."></textarea>
+                        <button onclick="handleTextSubmit()" class="mt-2 w-full bg-blue-100 text-blue-700 py-2 rounded-lg text-sm font-bold hover:bg-blue-200">Analyze Text</button>
+                    </div>
+
+                    <div id="ai-analysis" class="hidden mt-6 border-t pt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-gray-800"><i class="fa-solid fa-robot text-blue-500 mr-2"></i>AI Assessment</h3>
+                            <span id="ai-score" class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded">Severity: calculating...</span>
+                        </div>
+                        <p id="ai-msg" class="text-sm text-gray-600 mb-3">Analyzing infrastructure data...</p>
+                        
+                        <div id="ai-actions" class="space-y-1 mb-4"></div>
+
+                        <button onclick="submitToChain()" id="submitBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95">
+                            Mint NFT Ticket
+                        </button>
+                    </div>
+                </div>
+
+                <div id="form-contractor" class="hidden bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Contractor Portal</h2>
+                    <p class="text-sm text-gray-600 mb-4">Select an assigned ticket and upload "After" proof.</p>
+                    <input type="number" placeholder="Ticket ID #" class="w-full border p-2 rounded mb-2">
+                    <button class="w-full bg-orange-500 text-white font-bold py-2 rounded hover:bg-orange-600">Upload Resolution Proof</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8">
+                <div class="bg-white rounded-2xl shadow-lg p-6 min-h-[600px]">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Live Infrastructure Feed</h2>
+                    
+                    <div id="ticket-feed" class="space-y-6">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white px-6 py-4 rounded-lg shadow-2xl transform translate-y-20 opacity-0 transition-all duration-500 z-50 flex items-center">
+        <i class="fa-solid fa-bell text-yellow-400 mr-3"></i>
+        <div>
+            <h4 class="font-bold text-sm">AI Update</h4>
+            <p id="toast-msg" class="text-xs text-gray-300">Update sent to your phone.</p>
+        </div>
+    </div>
+
+    <script>
+        // ================= LOGIC =================
+        let currentRole = 'citizen';
+        let aiData = null;
+
+        function switchView(role) {
+            currentRole = role;
+            document.getElementById('view-landing').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+            
+            const badge = document.getElementById('role-badge');
+            badge.innerText = role;
+            
+            if(role === 'contractor') {
+                document.getElementById('form-citizen').classList.add('hidden');
+                document.getElementById('form-contractor').classList.remove('hidden');
+                badge.classList.replace('bg-blue-100', 'bg-orange-100');
+                badge.classList.replace('text-blue-800', 'text-orange-800');
+            }
+        }
+
+        function setTab(type) {
+            if(type === 'image') {
+                document.getElementById('input-image').classList.remove('hidden');
+                document.getElementById('input-text').classList.add('hidden');
+                document.getElementById('tab-image').classList.add('bg-white', 'shadow', 'text-blue-600');
+                document.getElementById('tab-image').classList.remove('text-gray-500');
+                document.getElementById('tab-text').classList.remove('bg-white', 'shadow', 'text-blue-600');
+                document.getElementById('tab-text').classList.add('text-gray-500');
+            } else {
+                document.getElementById('input-image').classList.add('hidden');
+                document.getElementById('input-text').classList.remove('hidden');
+                document.getElementById('tab-text').classList.add('bg-white', 'shadow', 'text-blue-600');
+                document.getElementById('tab-text').classList.remove('text-gray-500');
+                document.getElementById('tab-image').classList.remove('bg-white', 'shadow', 'text-blue-600');
+                document.getElementById('tab-image').classList.add('text-gray-500');
+            }
+        }
+
+        // Mock AI Analysis
+        function handleUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('preview');
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                    simulateAIProcess();
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function handleTextSubmit() {
+            const text = document.getElementById('textInput').value;
+            if(text.length > 5) simulateAIProcess();
+        }
+
+        function simulateAIProcess() {
+            const aiBox = document.getElementById('ai-analysis');
+            aiBox.classList.remove('hidden');
+            
+            // Simulate loading
+            setTimeout(() => {
+                // MOCK DATA (In real app, this comes from backend)
+                aiData = {
+                    category: "Pothole",
+                    severity: 9,
+                    startDate: "Nov 21",
+                    endDate: "Nov 23"
+                };
+
+                document.getElementById('ai-score').innerText = `Severity Score: ${aiData.severity}/10`;
+                document.getElementById('ai-msg').innerText = `Identified: Critical ${aiData.category}. Infrastructure hazard detected.`;
+                
+                // Feature 4: Contact List
+                const actionsDiv = document.getElementById('ai-actions');
+                actionsDiv.innerHTML = `
+                    <div class="flex items-center text-xs text-gray-600"><i class="fa-solid fa-check text-green-500 mr-2"></i> Notified Ward Councillor</div>
+                    <div class="flex items-center text-xs text-gray-600"><i class="fa-solid fa-check text-green-500 mr-2"></i> Alerted Mayor's Office (High Severity)</div>
+                `;
+            }, 1500);
+        }
+
+        function submitToChain() {
+            if(!aiData) return;
+            
+            // 1. Add to feed (Visual Simulation)
+            addTicketToFeed(aiData);
+            
+            // 2. Show Toast (Feature 7)
+            showToast("Report Minted as NFT! Tracking started.");
+            
+            // 3. Reset Form
+            document.getElementById('preview').classList.add('hidden');
+            document.getElementById('ai-analysis').classList.add('hidden');
+        }
+
+        function addTicketToFeed(data) {
+            const feed = document.getElementById('ticket-feed');
+            
+            // Feature 6: Visually Pleasing Tracker
+            const html = `
+                <div class="border border-gray-100 rounded-xl p-6 bg-white shadow hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded uppercase">#NFT-${Math.floor(Math.random()*1000)}</span>
+                            <h3 class="text-xl font-bold text-gray-900 mt-1">${data.category}</h3>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Est. Completion</p>
+                            <p class="font-bold text-green-600">${data.endDate}</p>
+                        </div>
+                    </div>
+
+                    <div class="ml-2">
+                        <div class="timeline-item timeline-active">
+                            <div class="timeline-dot"></div>
+                            <p class="text-sm font-bold text-gray-800">Reported & Minted</p>
+                            <p class="text-xs text-gray-500">Citizen uploaded evidence via App.</p>
+                        </div>
+                        <div class="timeline-item timeline-active">
+                            <div class="timeline-dot"></div>
+                            <p class="text-sm font-bold text-gray-800">AI Verified (Severity ${data.severity})</p>
+                            <p class="text-xs text-gray-500">Prioritized & sent to Mayor.</p>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <p class="text-sm font-bold text-gray-400">Scheduled Start: ${data.startDate}</p>
+                        </div>
+                         <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <p class="text-sm font-bold text-gray-400">Completion</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t flex justify-between items-center">
+                        <span class="text-xs text-gray-400"><i class="fa-brands fa-ethereum mr-1"></i>Stored on Blockchain</span>
+                        <button class="text-blue-600 text-sm font-bold hover:underline">View Details</button>
+                    </div>
+                </div>
+            `;
+            
+            feed.insertAdjacentHTML('afterbegin', html);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                t.classList.add('translate-y-20', 'opacity-0');
+            }, 4000);
+        }
+
+        // Initial Load
+        window.onload = function() {
+            // Add a dummy ticket to show the UI
+            addTicketToFeed({category: "Water Pipe Burst", severity: 8, startDate: "Nov 20", endDate: "Nov 21"});
+        }
+    </script>
+</body>
+</html>
